@@ -1,31 +1,27 @@
+import os
 import discord
+from dotenv import load_dotenv
 from discord.ext import commands
-from history import MessageHistory
-from summarize import ConversationSummarizer
+from message_history import MessageHistory
+from summarizer import Summarizer
 
-client = commands.Bot(command_prefix='!')
-history = MessageHistory()
-summarizer = ConversationSummarizer()
+load_dotenv()
 
-@client.event
+bot = commands.Bot(command_prefix='!')
+
+@bot.event
 async def on_ready():
-    print('Logged in as {0.user}'.format(client))
+    print(f'{bot.user.name} has connected to Discord!')
 
-@client.command(name='tldr')
-async def summarize(ctx, limit: int):
-    if limit > 100:
-        limit = 100
-    summary_report = ''
-    for channel in ctx.guild.text_channels:
-        history.channel = channel
-        text = await history.get_history(limit)
-        if text:
-            summary = summarizer.summarize(text)
-            summary_report += f"\n**{channel.name}**:\n{summary}\n"
-    if summary_report:
-        embed = discord.Embed(title='TL;DR of the conversation in this server', description=summary_report, color=0x00ff00)
-        await ctx.send(embed=embed)
+@bot.command(name='tldr', help='Summarize the conversation history')
+async def summarize_conversation(ctx):
+    message_history = MessageHistory(ctx.guild.text_channels)
+    summarizer = Summarizer('transformers')
+    summary = summarizer.summarize(message_history)
+    if summary:
+        embed = discord.Embed(title='Conversation Summary', description=summary, color=0x00ff00)
+        await ctx.send(embed=embed, hidden=True)
     else:
-        await ctx.send("There's no conversation history to summarize in this server.")
+        await ctx.send('Sorry, I was not able to generate a summary.', hidden=True)
 
-client.run('your-bot-token')
+bot.run(os.getenv('DISCORD_BOT_TOKEN'))
